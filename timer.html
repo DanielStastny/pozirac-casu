@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Časovač s Požíračem</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-deep: #0f1f3f;
+      --bg-soft: #eef2ff;
+      --bg-mid: #cad5f7;
+      --snake-dark: #142749;
+      --snake-mid: #1f3b63;
+      --snake-light: #8fb9eb;
+      --snake-belly: #bed5f2;
+      --snake-highlight: #dfeeff;
+      --eater-shell: #fffaf0;
+      --eater-shadow: #10254d;
+      --eater-mouth: #c8d8ff;
+      --tongue: #f45b4a;
+      --btn-primary: #4a90e2;
+      --btn-hover: #357abd;
+      --btn-danger: #e74c3c;
+      --btn-danger-hover: #c0392b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      color: #0b1330;
+      position: relative;
+    }
+
+    #timer-display {
+      position: fixed;
+      top: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 160px;
+      font-weight: bold;
+      color: #0b1330;
+      text-align: center;
+      font-family: 'VT323', 'Courier New', monospace;
+      z-index: 100;
+      padding: 30px 70px;
+      background: rgba(238, 242, 255, 0.5);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      text-shadow: 4px 4px 0px rgba(255, 255, 255, 0.4),
+                   2px 2px 0px rgba(255, 255, 255, 0.2);
+      letter-spacing: 12px;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      -webkit-font-smoothing: none;
+      -moz-osx-font-smoothing: grayscale;
+      font-smooth: never;
+      text-rendering: geometricPrecision;
+    }
+
+    #animation-container {
+      width: 100vw;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: 1;
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      shape-rendering: crispEdges;
+      image-rendering: pixelated;
+      background: var(--bg-soft);
+    }
+
+    #flash {
+      mix-blend-mode: screen;
+    }
+
+    #bits rect {
+      shape-rendering: crispEdges;
+    }
+
+    .pixel {
+      shape-rendering: crispEdges;
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      z-index: 100;
+    }
+
+    #time-input-group {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      background: rgba(238, 242, 255, 0.5);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      padding: 25px 40px;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    #time-input-group label {
+      display: none;
+    }
+
+    .time-control {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    #minutes-display {
+      font-size: 56px;
+      font-weight: bold;
+      color: #0b1330;
+      min-width: 120px;
+      text-align: center;
+      font-family: 'VT323', 'Courier New', monospace;
+      image-rendering: pixelated;
+      -webkit-font-smoothing: none;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .arrow-btn {
+      background: rgba(15, 31, 63, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: white;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      padding: 0;
+      margin: 0;
+      line-height: 1;
+      text-align: center;
+    }
+
+    .arrow-btn:hover:not(:disabled) {
+      background: rgba(15, 31, 63, 0.8);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: scale(1.1);
+    }
+
+    .arrow-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .arrow-btn:disabled {
+      background: rgba(100, 100, 100, 0.3);
+      cursor: not-allowed;
+      opacity: 0.5;
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    #button-group {
+      display: flex;
+      gap: 15px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    button.main-btn {
+      padding: 0;
+      margin: 0;
+      font-size: 48px;
+      font-weight: 400;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(15, 31, 63, 0.6);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      color: white;
+      line-height: 1;
+      text-align: center;
+    }
+
+    #start-btn {
+      font-size: 36px;
+      padding-left: 4px;
+    }
+
+    #pause-btn {
+      font-size: 44px;
+    }
+
+    #reset-btn {
+      font-size: 52px;
+    }
+
+    button.main-btn:hover:not(:disabled) {
+      background: rgba(15, 31, 63, 0.8);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: scale(1.1);
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    button.main-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+
+    button:active:not(:disabled) {
+      transform: translateY(0) !important;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media (max-width: 768px) {
+      #timer-display {
+        font-size: 96px;
+        padding: 20px 45px;
+        letter-spacing: 6px;
+        top: 20px;
+      }
+
+      #minutes-display {
+        font-size: 40px;
+        min-width: 80px;
+      }
+
+      button.main-btn {
+        width: 65px;
+        height: 65px;
+        font-size: 38px;
+      }
+
+      #start-btn {
+        font-size: 30px;
+        padding-left: 3px;
+      }
+
+      #pause-btn {
+        font-size: 36px;
+      }
+
+      #reset-btn {
+        font-size: 44px;
+      }
+
+      .arrow-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 24px;
+      }
+
+      #controls {
+        bottom: 20px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      #timer-display {
+        font-size: 72px;
+        padding: 15px 35px;
+        letter-spacing: 4px;
+      }
+
+      #minutes-display {
+        font-size: 32px;
+        min-width: 60px;
+      }
+
+      button.main-btn {
+        width: 55px;
+        height: 55px;
+        font-size: 32px;
+      }
+
+      #start-btn {
+        font-size: 26px;
+        padding-left: 2px;
+      }
+
+      #pause-btn {
+        font-size: 30px;
+      }
+
+      #reset-btn {
+        font-size: 38px;
+      }
+
+      .arrow-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="timer-display">00:00:00</div>
+
+  <div id="animation-container">
+    <svg id="scene" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <pattern id="bgGrid" width="32" height="32" patternUnits="userSpaceOnUse">
+          <rect width="32" height="32" fill="var(--bg-soft)"></rect>
+          <path d="M32 0H0V32" stroke="var(--bg-mid)" stroke-width="2"></path>
+          <path d="M0 16H32" stroke="rgba(255,255,255,0.35)" stroke-width="1"></path>
+        </pattern>
+
+        <linearGradient id="bgFade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.8)"></stop>
+          <stop offset="100%" stop-color="rgba(10,20,60,0.35)"></stop>
+        </linearGradient>
+
+        <clipPath id="snakeClip">
+          <rect id="snakeClipRect" x="48" y="380" width="1824" height="320"></rect>
+        </clipPath>
+
+        <filter id="sparkle" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur"></feGaussianBlur>
+          <feMerge>
+            <feMergeNode in="blur"></feMergeNode>
+            <feMergeNode in="SourceGraphic"></feMergeNode>
+          </feMerge>
+        </filter>
+      </defs>
+
+      <rect width="1920" height="1080" fill="url(#bgGrid)"></rect>
+      <rect width="1920" height="1080" fill="url(#bgFade)" opacity="0.6"></rect>
+
+      <rect id="flash" x="0" y="0" width="1920" height="1080" fill="#ffffff" opacity="0"></rect>
+
+      <g id="snake" clip-path="url(#snakeClip)" class="pixel">
+        <rect x="48" y="492" width="1536" height="96" fill="var(--snake-mid)"></rect>
+        <rect x="48" y="508" width="1536" height="64" fill="var(--snake-dark)"></rect>
+        <rect x="48" y="524" width="1536" height="32" fill="var(--snake-belly)"></rect>
+        <g id="snakePattern"></g>
+
+        <g id="snakeHead">
+          <rect x="1584" y="468" width="224" height="144" fill="var(--snake-dark)"></rect>
+          <rect x="1600" y="484" width="192" height="112" fill="var(--snake-highlight)"></rect>
+          <rect x="1600" y="540" width="192" height="32" fill="var(--snake-light)"></rect>
+          <rect x="1600" y="500" width="192" height="16" fill="#a8cdf5"></rect>
+          <rect x="1632" y="508" width="32" height="80" fill="var(--snake-light)"></rect>
+          <rect x="1792" y="508" width="16" height="80" fill="var(--snake-light)"></rect>
+          <rect id="snakeEye" x="1704" y="516" width="32" height="32" fill="var(--snake-dark)"></rect>
+          <rect x="1712" y="524" width="12" height="12" fill="#ffffff"></rect>
+          <polygon id="snakeTongue" points="1792,540 1856,508 1840,540 1856,572" fill="var(--tongue)"></polygon>
+        </g>
+      </g>
+
+      <g id="eater" class="pixel">
+        <path id="eaterShell"
+              d="M -160 -88 H 48 L 112 -32 V 32 L 48 88 H -160 Z"
+              fill="var(--eater-shell)"
+              stroke="var(--eater-shadow)"
+              stroke-width="16"></path>
+        <rect x="-120" y="-56" width="128" height="112" fill="#f7f2df"></rect>
+        <g id="mouthPivot" transform="translate(-16,0)">
+          <polygon id="mouth" points="0,0 144,-48 144,48" fill="var(--eater-mouth)"></polygon>
+        </g>
+        <rect x="-72" y="-32" width="40" height="40" fill="var(--eater-shadow)"></rect>
+        <rect x="-60" y="-20" width="16" height="16" fill="#ffffff"></rect>
+        <rect x="32" y="-16" width="32" height="32" fill="var(--eater-shadow)"></rect>
+        <rect x="32" y="8" width="24" height="16" fill="var(--eater-shadow)"></rect>
+        <rect x="24" y="-40" width="16" height="16" fill="var(--eater-shadow)"></rect>
+        <rect x="-136" y="40" width="32" height="16" fill="var(--eater-shadow)"></rect>
+      </g>
+
+      <polygon id="boomCircle" points="0,-20 14,-14 20,0 14,14 0,20 -14,14 -20,0 -14,-14"
+               fill="none" stroke="var(--eater-shadow)" stroke-width="12" opacity="0"></polygon>
+
+      <g id="boomRays" stroke="var(--eater-shadow)" stroke-width="16" opacity="0" class="pixel">
+        <line x1="0" y1="-140" x2="0" y2="-200"></line>
+        <line x1="128" y1="-64" x2="192" y2="-112"></line>
+        <line x1="160" y1="40" x2="232" y2="40"></line>
+        <line x1="128" y1="128" x2="192" y2="200"></line>
+        <line x1="0" y1="160" x2="0" y2="224"></line>
+        <line x1="-128" y1="128" x2="-192" y2="200"></line>
+        <line x1="-160" y1="40" x2="-232" y2="40"></line>
+        <line x1="-128" y1="-64" x2="-192" y2="-112"></line>
+      </g>
+
+      <g id="bits" class="pixel" opacity="0"></g>
+    </svg>
+  </div>
+
+  <div id="controls">
+    <div id="time-input-group">
+      <div class="time-control">
+        <button class="arrow-btn" id="decrease-btn" title="Snížit minuty">▼</button>
+        <div id="minutes-display">5</div>
+        <button class="arrow-btn" id="increase-btn" title="Zvýšit minuty">▲</button>
+      </div>
+    </div>
+
+    <div id="button-group">
+      <button class="main-btn" id="start-btn" title="Start">▶</button>
+      <button class="main-btn hidden" id="pause-btn" title="Pauza">⏸</button>
+      <button class="main-btn hidden" id="reset-btn" title="Reset">↻</button>
+    </div>
+  </div>
+
+  <script>
+    const svgNS = "http://www.w3.org/2000/svg";
+
+    // === PARAMETRY SCÉNY ===
+    const VIEW_W = 1920;
+    const VIEW_H = 1080;
+    const GRID = 16;
+    const BODY_COLS = 96;
+    const HEAD_COLS = 14;
+    const TIP_COLS = 4;
+    const BODY_LENGTH = GRID * BODY_COLS;
+    const HEAD_LENGTH = GRID * HEAD_COLS;
+    const TONGUE_LENGTH = GRID * TIP_COLS;
+    const SNAKE_LENGTH = BODY_LENGTH + HEAD_LENGTH + TONGUE_LENGTH;
+    const SNAKE_HEIGHT = GRID * 6;
+    const snakeX = 48;
+    const snakeY = VIEW_H / 2;
+    const snakeBodyTop = snakeY - SNAKE_HEIGHT / 2;
+    const headStartX = snakeX + BODY_LENGTH;
+    const eaterBaseY = snakeY;
+
+    // Explosion duration constant (1.3 seconds)
+    const EXPLOSION_DURATION = 1300;
+
+    // === DOM ELEMENTY ===
+    const snakeClipRect = document.getElementById("snakeClipRect");
+    const snakePatternGroup = document.getElementById("snakePattern");
+    const eater = document.getElementById("eater");
+    const mouth = document.getElementById("mouth");
+    const boomCircle = document.getElementById("boomCircle");
+    const boomRays = document.getElementById("boomRays");
+    const flashRect = document.getElementById("flash");
+    const bitsGroup = document.getElementById("bits");
+    const snakeEye = document.getElementById("snakeEye");
+    const snakeTongue = document.getElementById("snakeTongue");
+
+    // Timer controls
+    const timerDisplay = document.getElementById("timer-display");
+    const minutesDisplay = document.getElementById("minutes-display");
+    const increaseBtn = document.getElementById("increase-btn");
+    const decreaseBtn = document.getElementById("decrease-btn");
+    const startBtn = document.getElementById("start-btn");
+    const pauseBtn = document.getElementById("pause-btn");
+    const resetBtn = document.getElementById("reset-btn");
+    const timeInputGroup = document.getElementById("time-input-group");
+
+    // === POZICE ===
+    const eaterStartX = snakeX - GRID * 10;
+    const eaterEndX = snakeX + BODY_LENGTH + HEAD_LENGTH - GRID * 2;
+    const eaterY = eaterBaseY;
+
+    // === STAV ===
+    let timerMinutes = 5;
+    let totalTimeMs = 0;
+    let remainingTimeMs = 0;
+    let isRunning = false;
+    let isPaused = false;
+    let animationFrameId = null;
+    let lastTimestamp = null;
+    let explosionStarted = false;
+    let explosionStartTime = null;
+    let bits = [];
+
+    const baseEyeX = parseFloat(snakeEye.getAttribute("x"));
+    const baseEyeY = parseFloat(snakeEye.getAttribute("y"));
+
+    // === FUNKCE PRO ANIMACI ===
+    function buildSnakePixels() {
+      const rows = SNAKE_HEIGHT / GRID;
+      const cols = BODY_COLS;
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const rect = document.createElementNS(svgNS, "rect");
+          rect.setAttribute("x", snakeX + c * GRID);
+          rect.setAttribute("y", snakeBodyTop + r * GRID);
+          rect.setAttribute("width", GRID);
+          rect.setAttribute("height", GRID);
+
+          let color = (c % 8 < 4) ? "#1c3458" : "#24476d";
+          if (r === 0) color = "#9ac0ed";
+          if (r === rows - 1) color = "#162a4a";
+          if ((r + c) % 6 === 0) color = "#2a5685";
+          rect.setAttribute("fill", color);
+          snakePatternGroup.appendChild(rect);
+        }
+      }
+    }
+
+    function initBits() {
+      bitsGroup.innerHTML = "";
+      bits = [];
+      const colors = ["#f9cc5c", "#f47340", "#92c8ff", "#0f2248"];
+      const count = 170;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 260 + Math.random() * 520;
+        const size = (Math.random() > 0.5 ? GRID : GRID / 2);
+        const el = document.createElementNS(svgNS, "rect");
+        el.setAttribute("width", size);
+        el.setAttribute("height", size);
+        el.setAttribute("fill", colors[Math.floor(Math.random() * colors.length)]);
+        bitsGroup.appendChild(el);
+        bits.push({ el, angle, speed, size });
+      }
+    }
+
+    function updateChewingMouth(elapsed) {
+      const freq = 3.5;
+      const t = elapsed / 1000;
+      const osc = (Math.sin(t * freq * Math.PI * 2) + 1) / 2;
+      const mouthLen = GRID * 9;
+      const minOpen = GRID * 2;
+      const maxOpen = GRID * 5;
+      let open = minOpen + (maxOpen - minOpen) * osc;
+      open = Math.round(open / (GRID / 2)) * (GRID / 2);
+      const points = `0,0 ${mouthLen},${-open} ${mouthLen},${open}`;
+      mouth.setAttribute("points", points);
+    }
+
+    function updateEyeAndTongue(elapsed) {
+      const t = elapsed / 1000;
+      const eyeOffsetX = Math.sin(t * 2.2) * (GRID * 0.4);
+      const eyeOffsetY = Math.cos(t * 2.1) * (GRID * 0.35);
+      snakeEye.setAttribute("x", baseEyeX + eyeOffsetX);
+      snakeEye.setAttribute("y", baseEyeY + eyeOffsetY);
+
+      const tongueOffset = Math.sin(t * 4.5) * (GRID * 0.8);
+      snakeTongue.setAttribute("transform", `translate(${tongueOffset}, 0)`);
+    }
+
+    function formatTime(ms) {
+      const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    }
+
+    function updateTimerDisplay() {
+      timerDisplay.textContent = formatTime(remainingTimeMs);
+    }
+
+    function updateMinutesDisplay() {
+      minutesDisplay.textContent = timerMinutes;
+    }
+
+    function resetAnimation() {
+      // Reset snake to full length
+      snakeClipRect.setAttribute("x", snakeX);
+      snakeClipRect.setAttribute("width", SNAKE_LENGTH);
+
+      // Reset eater to start position
+      eater.setAttribute("transform", `translate(${eaterStartX}, ${eaterY})`);
+      eater.style.opacity = 1;
+
+      // Reset explosion elements
+      bitsGroup.setAttribute("opacity", 0);
+      flashRect.setAttribute("opacity", 0);
+      boomCircle.setAttribute("opacity", 0);
+      boomRays.setAttribute("opacity", 0);
+
+      explosionStarted = false;
+      explosionStartTime = null;
+    }
+
+    function animationStep(timestamp) {
+      if (!isRunning || isPaused) {
+        return;
+      }
+
+      if (lastTimestamp === null) {
+        lastTimestamp = timestamp;
+      }
+
+      const deltaTime = timestamp - lastTimestamp;
+      lastTimestamp = timestamp;
+
+      // Update remaining time
+      remainingTimeMs = Math.max(0, remainingTimeMs - deltaTime);
+      updateTimerDisplay();
+
+      // Calculate progress (0 to 1)
+      const timeElapsed = totalTimeMs - remainingTimeMs;
+
+      // Check if we're in explosion phase
+      if (remainingTimeMs === 0) {
+        // Start explosion timer if not started
+        if (explosionStartTime === null) {
+          explosionStartTime = timestamp;
+        }
+
+        const explosionElapsed = timestamp - explosionStartTime;
+
+        if (explosionElapsed <= EXPLOSION_DURATION) {
+          // Explosion phase
+          const p = Math.min(explosionElapsed / EXPLOSION_DURATION, 1);
+
+          if (!explosionStarted) {
+            explosionStarted = true;
+            initBits();
+          }
+
+          const scale = 1 + 3.2 * p;
+          eater.setAttribute("transform", `translate(${eaterEndX}, ${eaterY}) scale(${scale})`);
+          eater.style.opacity = 1 - p;
+
+          const maxOpen = GRID * 6;
+          const points = `0,0 ${GRID * 11},${-maxOpen} ${GRID * 11},${maxOpen}`;
+          mouth.setAttribute("points", points);
+
+          const boomSize = 40 + 190 * p;
+          const boomPoints = [
+            `0,${-boomSize}`,
+            `${boomSize * 0.7},${-boomSize * 0.7}`,
+            `${boomSize},0`,
+            `${boomSize * 0.7},${boomSize * 0.7}`,
+            `0,${boomSize}`,
+            `${-boomSize * 0.7},${boomSize * 0.7}`,
+            `${-boomSize},0`,
+            `${-boomSize * 0.7},${-boomSize * 0.7}`
+          ].join(" ");
+          boomCircle.setAttribute("points", boomPoints);
+          boomCircle.setAttribute("opacity", 1 - p * 0.7);
+
+          boomRays.setAttribute("opacity", 1 - p * 0.8);
+          boomRays.setAttribute("transform", `translate(${eaterEndX}, ${eaterY}) scale(${1 + p})`);
+
+          const flash = Math.pow(Math.sin(p * 6 * Math.PI), 2) * (1 - p);
+          flashRect.setAttribute("opacity", flash);
+
+          bitsGroup.setAttribute("opacity", 1);
+          bits.forEach((b) => {
+            const dist = b.speed * p;
+            const x = eaterEndX + Math.cos(b.angle) * dist - b.size / 2;
+            const y = eaterY + Math.sin(b.angle) * dist - b.size / 2;
+            b.el.setAttribute("x", x);
+            b.el.setAttribute("y", y);
+          });
+
+          snakeClipRect.setAttribute("x", snakeX + SNAKE_LENGTH);
+          snakeClipRect.setAttribute("width", 0);
+
+          animationFrameId = requestAnimationFrame(animationStep);
+        } else {
+          // Animation complete
+          isRunning = false;
+          updateUIState();
+        }
+      } else {
+        // Eating phase - progress based on actual time
+        const eatDuration = totalTimeMs;
+        const p = Math.min(timeElapsed / eatDuration, 1);
+
+        explosionStarted = false;
+        bitsGroup.setAttribute("opacity", 0);
+        flashRect.setAttribute("opacity", 0);
+
+        const newX = snakeX + SNAKE_LENGTH * p;
+        const newW = Math.max(SNAKE_LENGTH * (1 - p), 0);
+        snakeClipRect.setAttribute("x", newX);
+        snakeClipRect.setAttribute("width", newW);
+
+        const eaterX = eaterStartX + (eaterEndX - eaterStartX) * p;
+        eater.setAttribute("transform", `translate(${eaterX}, ${eaterY})`);
+        eater.style.opacity = 1;
+
+        updateChewingMouth(timeElapsed);
+        updateEyeAndTongue(timeElapsed);
+
+        boomCircle.setAttribute("opacity", 0);
+        boomRays.setAttribute("opacity", 0);
+
+        animationFrameId = requestAnimationFrame(animationStep);
+      }
+    }
+
+    function updateUIState() {
+      if (isRunning && !isPaused) {
+        // Timer running
+        startBtn.classList.add("hidden");
+        pauseBtn.classList.remove("hidden");
+        resetBtn.classList.remove("hidden");
+        increaseBtn.disabled = true;
+        decreaseBtn.disabled = true;
+      } else if (isPaused) {
+        // Timer paused
+        startBtn.classList.remove("hidden");
+        startBtn.textContent = "▶";
+        startBtn.title = "Pokračovat";
+        pauseBtn.classList.add("hidden");
+        resetBtn.classList.remove("hidden");
+        increaseBtn.disabled = false;
+        decreaseBtn.disabled = false;
+      } else {
+        // Timer stopped
+        startBtn.classList.remove("hidden");
+        startBtn.textContent = "▶";
+        startBtn.title = "Start";
+        pauseBtn.classList.add("hidden");
+        resetBtn.classList.add("hidden");
+        increaseBtn.disabled = false;
+        decreaseBtn.disabled = false;
+      }
+    }
+
+    // === EVENT HANDLERS ===
+    increaseBtn.addEventListener("click", () => {
+      if (timerMinutes < 1000) {
+        timerMinutes++;
+        updateMinutesDisplay();
+        if (isPaused) {
+          // Add 60 seconds to remaining time
+          remainingTimeMs += 60000;
+          totalTimeMs += 60000;
+          updateTimerDisplay();
+        }
+      }
+    });
+
+    decreaseBtn.addEventListener("click", () => {
+      if (timerMinutes > 0) {
+        timerMinutes--;
+        updateMinutesDisplay();
+        if (isPaused) {
+          // Remove 60 seconds from remaining time (but keep it >= 0)
+          remainingTimeMs = Math.max(0, remainingTimeMs - 60000);
+          totalTimeMs = Math.max(0, totalTimeMs - 60000);
+          updateTimerDisplay();
+        }
+      }
+    });
+
+    startBtn.addEventListener("click", () => {
+      if (!isRunning) {
+        // Starting new timer
+        totalTimeMs = timerMinutes * 60 * 1000;
+        remainingTimeMs = totalTimeMs;
+        isRunning = true;
+        isPaused = false;
+        resetAnimation();
+        updateTimerDisplay();
+        lastTimestamp = null;
+        animationFrameId = requestAnimationFrame(animationStep);
+      } else if (isPaused) {
+        // Resuming paused timer
+        isPaused = false;
+        lastTimestamp = null;
+        animationFrameId = requestAnimationFrame(animationStep);
+      }
+      updateUIState();
+    });
+
+    pauseBtn.addEventListener("click", () => {
+      isPaused = true;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      updateUIState();
+    });
+
+    resetBtn.addEventListener("click", () => {
+      isRunning = false;
+      isPaused = false;
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+      }
+      remainingTimeMs = 0;
+      totalTimeMs = 0;
+      resetAnimation();
+      updateTimerDisplay();
+      updateUIState();
+    });
+
+    // === INICIALIZACE ===
+    buildSnakePixels();
+    updateMinutesDisplay();
+    updateTimerDisplay();
+    updateUIState();
+    resetAnimation();
+  </script>
+</body>
+</html>
