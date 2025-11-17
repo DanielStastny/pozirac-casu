@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <title>Had & Požírač – Timer animace</title>
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: #f8f8fb;
+      font-family: system-ui, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <!-- === SVG SCÉNA === -->
+  <svg id="scene" width="700" height="250" viewBox="0 0 700 250">
+    <!-- Definice clipPath pro hada (budeme zkracovat obdélník) -->
+    <defs>
+      <clipPath id="snakeClip">
+        <rect id="snakeClipRect"
+              x="120" y="110"
+              width="460" height="40" />
+      </clipPath>
+    </defs>
+
+    <!-- HAD -->
+    <g id="snake" clip-path="url(#snakeClip)" stroke="#163d73" stroke-width="8" fill="none">
+      <!-- tělo -->
+      <rect x="120" y="110" width="460" height="40" rx="20" ry="20" />
+
+      <!-- segmenty / „dílky“ hada -->
+      <line x1="160" y1="112" x2="160" y2="150" />
+      <line x1="210" y1="112" x2="210" y2="150" />
+      <line x1="260" y1="112" x2="260" y2="150" />
+      <line x1="310" y1="112" x2="310" y2="150" />
+      <line x1="360" y1="112" x2="360" y2="150" />
+      <line x1="410" y1="112" x2="410" y2="150" />
+      <line x1="460" y1="112" x2="460" y2="150" />
+      <line x1="510" y1="112" x2="510" y2="150" />
+
+      <!-- oko hada -->
+      <circle cx="550" cy="130" r="5" fill="#163d73" stroke="none" />
+      <!-- jazyk hada -->
+      <path d="M565 130 L585 122 L575 130 L585 138 Z" fill="#163d73" stroke="none" />
+    </g>
+
+    <!-- POŽÍRAČ (otočený směrem doprava) -->
+    <!-- Je nakreslený kolem lokálních souřadnic (0,0); vše posouváme pomocí transform -->
+    <g id="eater" transform="translate(80,130)">
+      <!-- tělo požírače -->
+      <circle r="30" cx="0" cy="0"
+              stroke="#163d73" stroke-width="8"
+              fill="white" vector-effect="non-scaling-stroke" />
+
+      <!-- „vyříznutá“ tlama – jen bílý klín přes tělo -->
+      <polygon points="0,0 35,-20 35,20"
+               fill="white" stroke="none" />
+
+      <!-- oko -->
+      <circle cx="-5" cy="-13" r="5" fill="#163d73" stroke="none" />
+
+      <!-- jednoduché zuby -->
+      <polygon points="5,5 16,0 5,-5"
+               fill="#163d73" stroke="none" />
+      <polygon points="15,10 26,5 15,0"
+               fill="#163d73" stroke="none" />
+
+      <!-- kruh pro explozi -->
+      <circle id="boomCircle" cx="0" cy="0" r="5"
+              stroke="#163d73" stroke-width="5"
+              fill="none" opacity="0"
+              vector-effect="non-scaling-stroke" />
+
+      <!-- paprsky exploze -->
+      <g id="boomRays" stroke="#163d73" stroke-width="5" opacity="0"
+         vector-effect="non-scaling-stroke">
+        <line x1="0"  y1="-50" x2="0"  y2="-70" />
+        <line x1="40" y1="-20" x2="55" y2="-35" />
+        <line x1="40" y1="20"  x2="55" y2="35" />
+        <line x1="0"  y1="50"  x2="0"  y2="70" />
+        <line x1="-40" y1="20" x2="-55" y2="35" />
+        <line x1="-40" y1="-20" x2="-55" y2="-35" />
+      </g>
+    </g>
+  </svg>
+
+  <script>
+    // === KONFIG ===
+    const eatDuration = 6000;       // ms – doba žraní hada
+    const explosionDuration = 900;  // ms – délka exploze
+    const totalDuration = eatDuration + explosionDuration;
+
+    // Parametry hada (musí odpovídat hodnotám v SVG)
+    const snakeX = 120;
+    const snakeWidth = 460;
+    const snakeHeight = 40;
+
+    // Parametry požírače
+    const eaterStartX = 80;                   // start
+    const eaterEndX = snakeX + snakeWidth;    // konec (u hlavy hada)
+    const eaterY = 130;
+
+    // DOM reference
+    const snakeClipRect = document.getElementById('snakeClipRect');
+    const eater = document.getElementById('eater');
+    const boomCircle = document.getElementById('boomCircle');
+    const boomRays = document.getElementById('boomRays');
+
+    let startTime = null;
+
+    function step(timestamp) {
+      if (!startTime) startTime = timestamp;
+      let elapsed = timestamp - startTime;
+
+      // loop
+      if (elapsed > totalDuration) {
+        startTime = timestamp;
+        elapsed = 0;
+      }
+
+      if (elapsed <= eatDuration) {
+        // FÁZE 1: žraní
+        const p = elapsed / eatDuration; // 0..1
+
+        // had se zkracuje zleva (pravý konec zůstává na místě)
+        const newX = snakeX + snakeWidth * p;
+        const newW = snakeWidth * (1 - p);
+        snakeClipRect.setAttribute('x', newX);
+        snakeClipRect.setAttribute('width', newW);
+
+        // požírač jede zleva doprava
+        const eaterX = eaterStartX + (eaterEndX - eaterStartX) * p;
+        eater.setAttribute('transform', `translate(${eaterX}, ${eaterY})`);
+
+        // exploze skrytá
+        boomCircle.setAttribute('opacity', 0);
+        boomRays.setAttribute('opacity', 0);
+        eater.style.opacity = 1;
+      } else {
+        // FÁZE 2: exploze
+        const tExpl = elapsed - eatDuration;
+        const p = Math.min(tExpl / explosionDuration, 1); // 0..1
+
+        // požírač na konci hada
+        eater.setAttribute('transform',
+          `translate(${eaterEndX}, ${eaterY}) scale(${1 + 1.8 * p})`
+        );
+
+        // kruh exploze roste a mizí
+        boomCircle.setAttribute('r', 5 + 60 * p);
+        boomCircle.setAttribute('opacity', 1 - p);
+
+        // paprsky se objeví a pak mizí
+        boomRays.setAttribute('opacity', 1 - p);
+
+        // lehké vyblednutí požírače
+        eater.style.opacity = 1 - p * 0.7;
+      }
+
+      requestAnimationFrame(step);
+    }
+
+    requestAnimationFrame(step);
+  </script>
+</body>
+</html>

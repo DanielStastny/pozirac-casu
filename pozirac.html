@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <title>Pixel Požírač</title>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: transparent; /* žádné pozadí */
+    }
+
+    svg {
+      display: block;
+      width: 300px;
+      height: 300px;
+      image-rendering: pixelated;
+      shape-rendering: crispEdges;
+    }
+  </style>
+</head>
+<body>
+<svg viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+
+  <!-- TĚLO – hranatá hlava „C“ tvaru -->
+  <path id="body"
+        d="M4 6 H28 V26 H4 Z
+           M6 8 V24 H24 V8 Z"
+        fill="#132D5C"
+        fill-rule="evenodd" />
+
+  <!-- VÝŘEZ PRO OTEVŘENOU PUSU – „vykousne“ kus hlavy -->
+  <rect x="16" y="12" width="12" height="12" fill="transparent" />
+
+  <!-- OČI (hranaté) -->
+  <rect x="11" y="10" width="4" height="4" fill="#132D5C" />
+
+  <!-- ZUBY – pixelové zuby vnitřku tlamy -->
+  <g id="teeth" fill="#132D5C">
+    <!-- horní zub -->
+    <rect x="18" y="13" width="3" height="3" />
+    <!-- prostřední zub -->
+    <rect x="21" y="16" width="3" height="3" />
+    <!-- spodní zub -->
+    <rect x="18" y="19" width="3" height="3" />
+  </g>
+
+  <!-- PUSa – polygon, který budeme měnit (open/close) -->
+  <path id="mouth"
+        fill="#132D5C"
+        d="M16 12
+           H28
+           V24
+           H16
+           L20 20
+           L16 16
+           L20 14
+           Z" />
+</svg>
+
+<script>
+  // Odkaz na prvek pusy
+  const mouth = document.getElementById('mouth');
+
+  // Dvě varianty tvaru: otevřená vs zavřená pusa
+  const mouthOpen = `
+    M16 12
+    H28
+    V24
+    H16
+    L20 20
+    L16 16
+    L20 14
+    Z
+  `;
+
+  const mouthClosed = `
+    M16 14
+    H26
+    V22
+    H16
+    L19 19
+    L16 18
+    L19 17
+    Z
+  `;
+
+  let isOpen = true;
+
+  function chomp() {
+    isOpen = !isOpen;
+    mouth.setAttribute('d', isOpen ? mouthOpen : mouthClosed);
+  }
+
+  // klapání pusou ~6× za vteřinu
+  setInterval(chomp, 160);
+</script>
+</body>
+</html>
